@@ -1,3 +1,5 @@
+import streamlit as st
+
 MENU = {
     "espresso": {
         "ingredients": {
@@ -30,58 +32,66 @@ resources = {
     "coffee": 100,
 }
 
+profit = 0
 
 def check_resources(drink):
     for item in drink["ingredients"]:
-        if resources[item] < (drink["ingredients"][item]):
-            print(f"Sorry there's not enough {item}")
-            return False
-    return True
+        if resources.get(item, 0) < drink["ingredients"][item]:
+            return False, f"Sorry there's not enough {item}."
+    return True, "Resources are sufficient."
 
+def process_coins(quarters, dimes, nickels, pennies):
+    return round(quarters * 0.25 + dimes * 0.10 + nickels * 0.05 + pennies * 0.01, 2)
 
-def process_coins():
-    print("Please insert coins.")
-    quarters = int(input("How many quarters: ")) * 0.25
-    dimes = int(input("How many dimes: ")) * 0.1
-    nickles = int(input("How many nickles: ")) * 0.05
-    pennies = int(input("How many pennies: ")) * 0.01
-    payment = round(quarters + dimes + nickles + pennies, 2)
-    return payment
-
-
-def check_transaction(user_payment, drink_price,):
+def check_transaction(user_payment, drink_price):
     global profit
     change = user_payment - drink_price
     if user_payment >= drink_price:
         profit += drink_price
-        if change > 0:
-            print(f"Your change is {change}")
-        return True
+        return True, round(change, 2)
     else:
-        print("Sorry that's not enough money. Money refunded.")
-        return False
+        return False, 0.0
 
-
-def make_coffee(drink, name):
+def make_coffee(drink):
     for item in drink["ingredients"]:
         resources[item] -= drink["ingredients"][item]
-    print(f"Here is your {name}. Enjoy!")
 
+# --- Streamlit UI ---
 
-profit = 0
-turn_off = False
-while not turn_off:
-    answer = input("What would you like? (espresso/latte/cappuccino):").lower()
-    if answer == "off":
-        turn_off = True
-    elif answer == "report":
-        print(f"Water: {resources['water']}ml")
-        print(f"Milk: {resources['milk']}ml")
-        print(f"Coffee: {resources['coffee']}g")
-        print(f"Money: {profit}$")
-    elif answer in MENU:
-        drink = MENU[answer]
-        if check_resources(drink):
-            user_pay = process_coins()
-            if check_transaction(user_pay, drink["cost"]):
-                make_coffee(drink, answer)
+st.title("☕ Coffee Machine App")
+drink_choice = st.selectbox("Choose your drink:", list(MENU.keys()))
+drink = MENU[drink_choice]
+st.write(f"💲 Cost: ${drink['cost']}")
+
+st.subheader("Insert Coins")
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    quarters = st.number_input("Quarters", 0, 20, 0)
+with col2:
+    dimes = st.number_input("Dimes", 0, 20, 0)
+with col3:
+    nickels = st.number_input("Nickels", 0, 20, 0)
+with col4:
+    pennies = st.number_input("Pennies", 0, 20, 0)
+
+if st.button("Make Coffee"):
+    enough, msg = check_resources(drink)
+    if not enough:
+        st.error(msg)
+    else:
+        payment = process_coins(quarters, dimes, nickels, pennies)
+        success, change = check_transaction(payment, drink["cost"])
+        if success:
+            make_coffee(drink)
+            st.success(f"Here is your {drink_choice} ☕ Enjoy!")
+            if change > 0:
+                st.info(f"Your change is ${change}")
+        else:
+            st.error("Sorry, that's not enough money. Money refunded.")
+
+st.markdown("---")
+st.subheader("📊 Machine Report")
+st.write(f"Water: {resources['water']}ml")
+st.write(f"Milk: {resources.get('milk', 0)}ml")
+st.write(f"Coffee: {resources['coffee']}g")
+st.write(f"Money: ${profit}")
